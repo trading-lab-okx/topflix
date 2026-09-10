@@ -1,0 +1,5 @@
+web/data/feed.json
+_site/
+__pycache__/
+*.pyc
+.env

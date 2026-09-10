@@ -1,0 +1,19 @@
+{
+  "_comment": "Edita SOLO la lista 'mis_plataformas'. Escribe el nombre tal cual lo conoces; el recolector lo empareja solo con el catalogo de TMDB. Si algo no aparece en 'Nuevo en tus plataformas', revisa el log de la Action para ver que nombre esperaba TMDB.",
+  "region_principal": "MX",
+  "region_secundaria": "US",
+  "idioma": "es-MX",
+  "mis_plataformas": [
+    "Netflix",
+    "Amazon Prime Video",
+    "Disney Plus",
+    "Max",
+    "Apple TV Plus",
+    "Paramount Plus",
+    "Crunchyroll",
+    "MUBI",
+    "ViX",
+    "Claro video",
+    "Pluto TV"
+  ]
+}

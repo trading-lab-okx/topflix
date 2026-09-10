@@ -1,0 +1,51 @@
+name: Actualizar y publicar
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"     # cada 6 horas (UTC)
+  workflow_dispatch:            # boton "Run workflow" manual
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Recolectar datos de TMDB
+        env:
+          TMDB_TOKEN: ${{ secrets.TMDB_TOKEN }}
+        run: python fetch.py --out web/data/feed.json
+
+      - name: Preparar sitio
+        run: |
+          mkdir -p _site
+          cp -r web/. _site/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
