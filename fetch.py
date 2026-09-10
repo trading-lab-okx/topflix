@@ -37,6 +37,20 @@ RECENT_DAYS = 100           # ventana para "nuevo en tus plataformas"
 TOP_RATED_MONTHS = 8        # ventana para "mejor valoradas del momento"
 HTTP_TIMEOUT = 25
 
+# filas por genero (ids de genero de peliculas de TMDB, estables)
+GENRES_MOVIE = [
+    (28, "Accion"),
+    (35, "Comedia"),
+    (27, "Terror"),
+    (878, "Ciencia ficcion"),
+    (18, "Drama"),
+    (16, "Animacion"),
+    (53, "Suspenso"),
+    (10749, "Romance"),
+    (80, "Crimen"),
+    (99, "Documental"),
+]
+
 
 # --------------------------------------------------------------------------- #
 #  HTTP
@@ -291,6 +305,16 @@ def collect(lang: str, region: str, region2: str, mine_ids: set[int]) -> list[di
         if i < len(b):
             inter.append(b[i])
     add("popular", "Mas populares ahora", "Lo mas visto y buscado", inter)
+
+    # 7. Filas por genero (peliculas mas populares de cada genero)
+    for gid, gname in GENRES_MOVIE:
+        g = api_get("/discover/movie", {
+            "language": lang, "region": region,
+            "with_genres": str(gid), "sort_by": "popularity.desc",
+            "vote_count.gte": 80, "page": 1,
+        })
+        add(f"genre_{gid}", gname, f"Lo mas popular en {gname.lower()}",
+            _ids_from_results(g.get("results", []), "movie"))
 
     # ---- enriquecer todos los titulos unicos en paralelo ----
     all_pairs: list[tuple[str, int]] = []
