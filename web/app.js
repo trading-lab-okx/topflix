@@ -129,9 +129,12 @@ function cardEl(it) {
 /* ---------- modal ---------- */
 const modal = $("#modal");
 const modalBody = $("#modalBody");
-$(".x", modal).addEventListener("click", closeModal);
+let modalHist = false;   // ¿metimos una entrada de historial al abrir?
+$(".x", modal).addEventListener("click", () => closeModal());
 modal.addEventListener("click", e => { if (e.target === modal) closeModal(); });
-document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !modal.hidden) closeModal(); });
+// boton "atras" del telefono: cierra el modal en vez de salir del sitio
+window.addEventListener("popstate", () => { if (!modal.hidden) closeModal(true); });
 
 function openModal(it) {
   const hero = it.trailer
@@ -158,11 +161,18 @@ function openModal(it) {
     </div>`;
   modal.hidden = false;
   document.body.style.overflow = "hidden";
+  if (!modalHist) {
+    try { history.pushState({ modal: true }, ""); modalHist = true; } catch (_) {}
+  }
 }
-function closeModal() {
+function closeModal(fromBack) {
   modal.hidden = true;
-  modalBody.innerHTML = "";
+  modalBody.innerHTML = "";   // detiene el video del iframe
   document.body.style.overflow = "";
+  if (modalHist) {
+    modalHist = false;
+    if (!fromBack) { try { history.back(); } catch (_) {} }
+  }
 }
 
 function provHtml(p) {
