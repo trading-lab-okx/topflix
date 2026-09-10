@@ -2,11 +2,16 @@
 
 const $ = (s, r = document) => r.querySelector(s);
 const app = $("#app");
-const state = { feed: null, onlyMine: false, q: "" };
+const state = { feed: null, onlyMine: false, q: "", media: "all" };
 
-// preferencia recordada
+// preferencias recordadas
 try { state.onlyMine = localStorage.getItem("topflix_onlyMine") === "1"; } catch (_) {}
+try {
+  const m = localStorage.getItem("topflix_media");
+  if (m === "movie" || m === "tv" || m === "all") state.media = m;
+} catch (_) {}
 $("#onlyMine").checked = state.onlyMine;
+setSeg(state.media);
 
 fetch("data/feed.json", { cache: "no-store" })
   .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
@@ -23,7 +28,28 @@ $("#onlyMine").addEventListener("change", e => {
   render();
 });
 
+$("#mediaSeg").addEventListener("click", e => {
+  const b = e.target.closest("button[data-m]");
+  if (!b) return;
+  state.media = b.dataset.m;
+  try { localStorage.setItem("topflix_media", state.media); } catch (_) {}
+  setSeg(state.media);
+  render();
+});
+function setSeg(m) {
+  document.querySelectorAll("#mediaSeg button").forEach(b =>
+    b.classList.toggle("on", b.dataset.m === m));
+}
+
+// una seccion puede ser solo de peliculas o solo de series
+function sectionVisible(sec) {
+  if (state.media === "all") return true;
+  if (!sec.media || sec.media === "all") return true;
+  return sec.media === state.media;
+}
+
 function matches(it) {
+  if (state.media !== "all" && it.media_type !== state.media) return false;
   if (state.onlyMine && !(it.providers && it.providers.on_mine)) return false;
   if (state.q) {
     const hay = (it.title + " " + it.original_title + " " + (it.genres || []).join(" ")).toLowerCase();
@@ -47,6 +73,7 @@ function render() {
   app.innerHTML = "";
   let shown = 0;
   for (const sec of feed.sections) {
+    if (!sectionVisible(sec)) continue;
     const items = sec.items.filter(matches);
     if (!items.length) continue;
     shown += items.length;

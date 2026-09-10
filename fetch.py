@@ -37,7 +37,8 @@ RECENT_DAYS = 100           # ventana para "nuevo en tus plataformas"
 TOP_RATED_MONTHS = 8        # ventana para "mejor valoradas del momento"
 HTTP_TIMEOUT = 25
 
-# filas por genero (ids de genero de peliculas de TMDB, estables)
+# filas por genero (ids de genero de TMDB, estables). Peliculas y series usan
+# catalogos de genero distintos.
 GENRES_MOVIE = [
     (28, "Accion"),
     (35, "Comedia"),
@@ -49,6 +50,18 @@ GENRES_MOVIE = [
     (10749, "Romance"),
     (80, "Crimen"),
     (99, "Documental"),
+]
+GENRES_TV = [
+    (10759, "Accion y aventura"),
+    (35, "Comedia"),
+    (80, "Crimen"),
+    (18, "Drama"),
+    (16, "Animacion"),
+    (10765, "Ciencia ficcion y fantasia"),
+    (9648, "Misterio"),
+    (99, "Documental"),
+    (10751, "Familia"),
+    (10768, "Belico y politica"),
 ]
 
 
@@ -120,13 +133,18 @@ def resolve_platforms(regions: list[str], wanted: list[str]) -> dict:
     missing: list[str] = []
     for name in wanted:
         n = _norm(name)
+        nw = set(n.split())
         hit = catalog.get(n)
         if not hit:
-            # match laxo por prefijo / contencion
+            # empareja por palabras: "max" <-> "hbo max", "apple tv plus" <-> "apple tv"
+            cands = []
             for cn, val in catalog.items():
-                if cn == n or cn.startswith(n + " ") or n.startswith(cn + " ") or (len(n) > 4 and n in cn):
-                    hit = val
-                    break
+                cw = set(cn.split())
+                if nw and cw and (nw <= cw or cw <= nw):
+                    cands.append((abs(len(cw) - len(nw)), len(cn), val))
+            if cands:
+                cands.sort(key=lambda t: (t[0], t[1]))
+                hit = cands[0][2]
         if hit:
             resolved[name] = {"id": hit[0], "tmdb_name": hit[1]}
         else:
@@ -236,7 +254,7 @@ def collect(lang: str, region: str, region2: str, mine_ids: set[int]) -> list[di
     sections: list[dict] = []
 
     def add(sid: str, title: str, subtitle: str, pairs: list[tuple[str, int]],
-            limit: int = SECTION_SIZE, paged: bool = False):
+            limit: int = SECTION_SIZE, paged: bool = False, media: str = "all"):
         seen: set[tuple[str, int]] = set()
         uniq = []
         for p in pairs:
@@ -246,7 +264,7 @@ def collect(lang: str, region: str, region2: str, mine_ids: set[int]) -> list[di
             if len(uniq) >= limit:
                 break
         sections.append({"id": sid, "title": title, "subtitle": subtitle,
-                         "paged": paged, "_pairs": uniq})
+                         "paged": paged, "media": media, "_pairs": uniq})
 
     # 1. Tendencias de la semana (cine + tv)
     tr = api_get("/trending/all/week", {"language": lang})
@@ -257,7 +275,8 @@ def collect(lang: str, region: str, region2: str, mine_ids: set[int]) -> list[di
     npx = api_get("/movie/now_playing", {"language": lang, "region": region, "page": 1})
     npus = api_get("/movie/now_playing", {"language": lang, "region": region2, "page": 1})
     add("in_theaters", f"En cine ahora", f"Cartelera de {region} (y estrenos de {region2})",
-        _ids_from_results(npx.get("results", []), "movie") + _ids_from_results(npus.get("results", []), "movie"))
+        _ids_from_results(npx.get("results", []), "movie") + _ids_from_results(npus.get("results", []), "movie"),
+        media="movie")
 
     # 3. Proximos estrenos
     up = api_get("/movie/upcoming", {"language": lang, "region": region, "page": 1})
@@ -266,7 +285,7 @@ def collect(lang: str, region: str, region2: str, mine_ids: set[int]) -> list[di
            if (r.get("release_date") or "9999") > today.isoformat()]
     fut.sort(key=lambda r: r.get("release_date") or "9999")
     add("upcoming", "Proximos estrenos", "Lo que viene a cartelera",
-        _ids_from_results(fut, "movie"))
+        _ids_from_results(fut, "movie"), media="movie")
 
     # 4. Nuevo en tus plataformas (estrenos recientes disponibles en flatrate)
     if prov_param:
@@ -294,7 +313,7 @@ def collect(lang: str, region: str, region2: str, mine_ids: set[int]) -> list[di
     })
     add("top_rated", "Mejor valoradas del momento",
         f"Estrenos de los ultimos {TOP_RATED_MONTHS} meses con mejor nota",
-        _ids_from_results(tr_rated.get("results", []), "movie"))
+        _ids_from_results(tr_rated.get("results", []), "movie"), media="movie")
 
     # 6. Mas populares ahora
     pop_m = api_get("/movie/popular", {"language": lang, "region": region, "page": 1})
@@ -310,11 +329,9 @@ def collect(lang: str, region: str, region2: str, mine_ids: set[int]) -> list[di
 
     # 7. Filas por genero: joyas mejor valoradas de todos los tiempos.
     #    Se traen varias paginas para poder cargar mas al hacer scroll lateral.
-    GENRE_PAGES = 3
-    GENRE_LIMIT = GENRE_PAGES * 20
     for gid, gname in GENRES_MOVIE:
-        pairs: list[tuple[str, int]] = []
-        for page in range(1, GENRE_PAGES + 1):
+        pairs = []
+        for page in (1, 2, 3):
             g = api_get("/discover/movie", {
                 "language": lang,
                 "with_genres": str(gid),
@@ -324,9 +341,25 @@ def collect(lang: str, region: str, region2: str, mine_ids: set[int]) -> list[di
                 "page": page,
             })
             pairs.extend(_ids_from_results(g.get("results", []), "movie"))
-        add(f"genre_{gid}", gname,
+        add(f"genre_movie_{gid}", gname,
             "Joyas del genero, mejor valoradas de todos los tiempos",
-            pairs, limit=GENRE_LIMIT, paged=True)
+            pairs, limit=60, paged=True, media="movie")
+
+    # 8. Filas por genero para series
+    for gid, gname in GENRES_TV:
+        pairs = []
+        for page in (1, 2, 3):
+            g = api_get("/discover/tv", {
+                "language": lang,
+                "with_genres": str(gid),
+                "sort_by": "vote_average.desc",
+                "vote_count.gte": 300,
+                "page": page,
+            })
+            pairs.extend(_ids_from_results(g.get("results", []), "tv"))
+        add(f"genre_tv_{gid}", gname,
+            "Series del genero mejor valoradas de todos los tiempos",
+            pairs, limit=60, paged=True, media="tv")
 
     # ---- enriquecer todos los titulos unicos en paralelo ----
     all_pairs: list[tuple[str, int]] = []
