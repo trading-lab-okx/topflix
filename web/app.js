@@ -55,13 +55,29 @@ function render() {
     row.innerHTML = `<h2>${esc(sec.title)}</h2><p class="sub">${esc(sec.subtitle || "")}</p>`;
     const strip = document.createElement("div");
     strip.className = "strip";
-    items.forEach(it => strip.appendChild(cardEl(it)));
+    const step = 20;
+    const first = sec.paged ? Math.min(step, items.length) : items.length;
+    for (let i = 0; i < first; i++) strip.appendChild(cardEl(items[i]));
+    if (sec.paged && first < items.length) lazyStrip(strip, items, first, step);
     row.appendChild(strip);
     app.appendChild(row);
   }
   if (!shown) {
     app.innerHTML = `<p class="loading">Nada que mostrar con el filtro actual.</p>`;
   }
+}
+
+// revela mas tarjetas al acercarse al final del scroll lateral
+function lazyStrip(strip, items, shownCount, step) {
+  let shown = shownCount;
+  const onScroll = () => {
+    if (strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 500) return;
+    const next = Math.min(shown + step, items.length);
+    for (let i = shown; i < next; i++) strip.appendChild(cardEl(items[i]));
+    shown = next;
+    if (shown >= items.length) strip.removeEventListener("scroll", onScroll);
+  };
+  strip.addEventListener("scroll", onScroll, { passive: true });
 }
 
 function cardEl(it) {

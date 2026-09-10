@@ -235,16 +235,18 @@ def collect(lang: str, region: str, region2: str, mine_ids: set[int]) -> list[di
 
     sections: list[dict] = []
 
-    def add(sid: str, title: str, subtitle: str, pairs: list[tuple[str, int]]):
+    def add(sid: str, title: str, subtitle: str, pairs: list[tuple[str, int]],
+            limit: int = SECTION_SIZE, paged: bool = False):
         seen: set[tuple[str, int]] = set()
         uniq = []
         for p in pairs:
             if p not in seen:
                 seen.add(p)
                 uniq.append(p)
-            if len(uniq) >= SECTION_SIZE:
+            if len(uniq) >= limit:
                 break
-        sections.append({"id": sid, "title": title, "subtitle": subtitle, "_pairs": uniq})
+        sections.append({"id": sid, "title": title, "subtitle": subtitle,
+                         "paged": paged, "_pairs": uniq})
 
     # 1. Tendencias de la semana (cine + tv)
     tr = api_get("/trending/all/week", {"language": lang})
@@ -306,15 +308,25 @@ def collect(lang: str, region: str, region2: str, mine_ids: set[int]) -> list[di
             inter.append(b[i])
     add("popular", "Mas populares ahora", "Lo mas visto y buscado", inter)
 
-    # 7. Filas por genero (peliculas mas populares de cada genero)
+    # 7. Filas por genero: joyas mejor valoradas de todos los tiempos.
+    #    Se traen varias paginas para poder cargar mas al hacer scroll lateral.
+    GENRE_PAGES = 3
+    GENRE_LIMIT = GENRE_PAGES * 20
     for gid, gname in GENRES_MOVIE:
-        g = api_get("/discover/movie", {
-            "language": lang, "region": region,
-            "with_genres": str(gid), "sort_by": "popularity.desc",
-            "vote_count.gte": 80, "page": 1,
-        })
-        add(f"genre_{gid}", gname, f"Lo mas popular en {gname.lower()}",
-            _ids_from_results(g.get("results", []), "movie"))
+        pairs: list[tuple[str, int]] = []
+        for page in range(1, GENRE_PAGES + 1):
+            g = api_get("/discover/movie", {
+                "language": lang,
+                "with_genres": str(gid),
+                "without_genres": "10770",  # sin telefilmes
+                "sort_by": "vote_average.desc",
+                "vote_count.gte": 500,      # solo titulos con reconocimiento real
+                "page": page,
+            })
+            pairs.extend(_ids_from_results(g.get("results", []), "movie"))
+        add(f"genre_{gid}", gname,
+            "Joyas del genero, mejor valoradas de todos los tiempos",
+            pairs, limit=GENRE_LIMIT, paged=True)
 
     # ---- enriquecer todos los titulos unicos en paralelo ----
     all_pairs: list[tuple[str, int]] = []
@@ -324,7 +336,7 @@ def collect(lang: str, region: str, region2: str, mine_ids: set[int]) -> list[di
     print(f"Enriqueciendo {len(uniq_pairs)} titulos unicos...", flush=True)
 
     cache: dict[tuple[str, int], dict] = {}
-    with ThreadPoolExecutor(max_workers=8) as ex:
+    with ThreadPoolExecutor(max_workers=12) as ex:
         futs = {ex.submit(enrich, mt, tid, lang, region, mine_ids): (mt, tid) for mt, tid in uniq_pairs}
         for f in as_completed(futs):
             key = futs[f]
