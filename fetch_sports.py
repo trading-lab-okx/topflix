@@ -70,7 +70,10 @@ def _norm(s: str | None) -> str:
     return re.sub(r"\s+", " ", (s or "").strip().lower())
 
 
-def wanted_match(name: str, wanted: list[str], exclude: list[str]) -> bool:
+def wanted_match(name: str, country: str | None, wanted: list, exclude: list[str]) -> bool:
+    """wanted puede traer texto plano o {"nombre": ..., "pais": [...]}. El pais
+    se exige solo cuando esta presente (para no agarrar la misma liga de otro
+    continente, ej. 'Premier League' de Nigeria)."""
     n = _norm(name)
     if not n:
         return False
@@ -78,10 +81,19 @@ def wanted_match(name: str, wanted: list[str], exclude: list[str]) -> bool:
         e = _norm(ex)
         if e and e in n:
             return False
+    nc = _norm(country)
     for w in wanted:
-        w = _norm(w)
-        if w and (w in n or n in w):
-            return True
+        if isinstance(w, dict):
+            wn = _norm(w.get("nombre"))
+            paises = w.get("pais")
+        else:
+            wn = _norm(w)
+            paises = None
+        if not wn or not (wn in n or n in wn):
+            continue
+        if paises and nc not in {_norm(p) for p in paises}:
+            continue
+        return True
     return False
 
 
@@ -120,7 +132,7 @@ def fetch_football(key: str, dates: list[str], wanted: list[str], exclude: list[
             try:
                 league = fx.get("league") or {}
                 lname = league.get("name") or ""
-                if not wanted_match(lname, wanted, exclude):
+                if not wanted_match(lname, league.get("country"), wanted, exclude):
                     continue
                 fixture = fx.get("fixture") or {}
                 iso = fixture.get("date")
@@ -216,7 +228,7 @@ def build(key: str, cfg: dict) -> dict:
 
     wanted = cfg.get("ligas_futbol", [])
     exclude = cfg.get("excluir_si_contiene", [])
-    order = [_norm(x) for x in wanted]
+    order = [_norm(x.get("nombre") if isinstance(x, dict) else x) for x in wanted]
 
     events = fetch_football(key, utc_dates, wanted, exclude)
     if cfg.get("incluir_nfl", True):
