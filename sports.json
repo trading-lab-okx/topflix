@@ -1,5 +1,5 @@
 {
-  "_comment": "Edita 'ligas_futbol' con el nombre (o parte del nombre) de la liga/torneo tal como lo usa la API. El emparejador es flexible: no hace falta el nombre exacto (ej. 'Primera Division' agarra la liga de Argentina, Uruguay, Paraguay, etc. porque asi se llaman ahi). 'excluir_si_contiene' quita categorias que no quieres (femenil, juveniles, reservas, amistosos de clubes) aunque coincidan con algo de arriba.",
+  "_comment": "Edita 'ligas_futbol' con el nombre (o parte del nombre) de la liga/torneo tal como lo usa la API. El emparejador es flexible: no hace falta el nombre exacto (ej. 'Primera Division' agarra la liga de Argentina, Uruguay, Paraguay, etc. porque asi se llaman ahi). 'excluir_si_contiene' quita categorias que no quieres (femenil, juveniles, reservas, clasificatorias de otras confederaciones) aunque coincidan con algo de arriba. Lista recortada a proposito: solo lo que de verdad se veria.",
   "ligas_futbol": [
     "Liga MX",
     "Premier League",
@@ -7,23 +7,20 @@
     "Serie A",
     "Bundesliga",
     "Ligue 1",
-    "MLS",
     "Primera Division",
+    "Primera A",
     "Copa Libertadores",
-    "Copa Sudamericana",
     "UEFA Champions League",
-    "UEFA Europa League",
     "World Cup",
     "Copa America",
-    "UEFA Nations League",
-    "UEFA European Championship",
     "Gold Cup",
     "Friendlies"
   ],
   "excluir_si_contiene": [
     "Women", "Female", "Femenina", "Femenil",
     "U15", "U16", "U17", "U18", "U19", "U20", "U21", "U22", "U23",
-    "Youth", "Reserve", "Reserves", "Friendlies Clubs"
+    "Youth", "Reserve", "Reserves", "Friendlies Clubs",
+    "Qualification Europe", "Qualification Africa", "Qualification Asia", "Qualification Oceania"
   ],
   "incluir_nfl": true
 }
