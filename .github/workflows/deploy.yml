@@ -31,6 +31,11 @@ jobs:
           TMDB_TOKEN: ${{ secrets.TMDB_TOKEN }}
         run: python fetch.py --out web/data/feed.json
 
+      - name: Recolectar agenda deportiva
+        env:
+          API_SPORTS_KEY: ${{ secrets.API_SPORTS_KEY }}
+        run: python fetch_sports.py --out web/data/agenda.json
+
       - name: Preparar sitio
         run: |
           mkdir -p _site

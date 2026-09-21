@@ -25,7 +25,11 @@
 <body>
 <header class="top">
   <div class="brand">🍿 <span>topflix</span></div>
-  <div class="tools">
+  <div class="seg" id="viewSeg">
+    <button type="button" data-v="watch" class="on">🎬 Ver</button>
+    <button type="button" data-v="sports">⚽ Deportes</button>
+  </div>
+  <div class="tools" id="watchTools">
     <div class="seg" id="mediaSeg">
       <button type="button" data-m="all" class="on">Todo</button>
       <button type="button" data-m="movie">Películas</button>
@@ -39,9 +43,11 @@
 <p id="meta" class="meta"></p>
 
 <main id="app"><p class="loading">Cargando…</p></main>
+<main id="sportsApp" hidden><p class="loading">Cargando…</p></main>
 
 <footer class="foot">
-  Datos de <a href="https://www.themoviedb.org/" target="_blank" rel="noopener">TMDB</a>.
+  Datos de <a href="https://www.themoviedb.org/" target="_blank" rel="noopener">TMDB</a> y
+  <a href="https://api-sports.io/" target="_blank" rel="noopener">API-Sports</a>.
   Sitio personal, solo informativo. <span id="stamp"></span>
 </footer>
 
