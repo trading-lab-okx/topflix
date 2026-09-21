@@ -13,6 +13,14 @@ try {
 $("#onlyMine").checked = state.onlyMine;
 setSeg(state.media);
 
+// PWA: registra el service worker (necesario para que el navegador
+// ofrezca "instalar" el sitio como app)
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
+
 fetch("data/feed.json", { cache: "no-store" })
   .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
   .then(feed => { state.feed = feed; render(); })
