@@ -202,6 +202,7 @@ def fetch_nfl(key: str, dates: list[str]) -> list[dict]:
                 })
             except Exception as e:  # noqa: BLE001
                 print(f"  aviso: partido de NFL no interpretado: {e}", flush=True)
+                print(f"    dato crudo: {json.dumps(g, ensure_ascii=False)[:600]}", flush=True)
     return events
 
 
