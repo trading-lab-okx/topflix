@@ -19,27 +19,74 @@
   const SPORTSDB = "https://www.thesportsdb.com/api/v1/json/123/";
 
   // Orden en que se muestran. "id" es el código de ESPN de cada liga.
+  // Los torneos que no se están jugando no estorban: aparecen solos cuando hay partidos.
+  const F = (id, nombre) => ({ dep: "futbol", id: "soccer/" + id, nombre });
   const LIGAS = [
-    // fútbol
-    { dep: "futbol", id: "soccer/mex.1", nombre: "Liga MX" },
-    { dep: "futbol", id: "soccer/concacaf.champions", nombre: "Concacaf Champions Cup" },
-    { dep: "futbol", id: "soccer/uefa.champions", nombre: "Champions League" },
-    { dep: "futbol", id: "soccer/uefa.europa", nombre: "Europa League" },
-    { dep: "futbol", id: "soccer/eng.1", nombre: "Premier League" },
-    { dep: "futbol", id: "soccer/esp.1", nombre: "LaLiga" },
-    { dep: "futbol", id: "soccer/ita.1", nombre: "Serie A" },
-    { dep: "futbol", id: "soccer/ger.1", nombre: "Bundesliga" },
-    { dep: "futbol", id: "soccer/fra.1", nombre: "Ligue 1" },
-    { dep: "futbol", id: "soccer/usa.1", nombre: "MLS" },
-    { dep: "futbol", id: "soccer/fifa.world", nombre: "Mundial" },
-    { dep: "futbol", id: "soccer/fifa.worldq.concacaf", nombre: "Eliminatorias Concacaf" },
-    { dep: "futbol", id: "soccer/concacaf.nations.league", nombre: "Liga de Naciones Concacaf" },
-    { dep: "futbol", id: "soccer/concacaf.gold", nombre: "Copa Oro" },
-    { dep: "futbol", id: "soccer/fifa.friendly", nombre: "Amistosos de selecciones" },
-    // americanos
+    // ----- México y Concacaf -----
+    F("mex.1", "Liga MX"),
+    F("concacaf.champions", "Concacaf Champions Cup"),
+    F("concacaf.leagues.cup", "Leagues Cup"),
+    F("campeones.cup", "Campeones Cup"),
+    F("usa.1", "MLS"),
+    F("crc.1", "Costa Rica · Primera División"),
+    F("gua.1", "Guatemala · Liga Nacional"),
+    F("hon.1", "Honduras · Liga Nacional"),
+    F("slv.1", "El Salvador · Primera División"),
+    // ----- Sudamérica -----
+    F("conmebol.libertadores", "Copa Libertadores"),
+    F("conmebol.sudamericana", "Copa Sudamericana"),
+    F("conmebol.recopa", "Recopa Sudamericana"),
+    F("arg.1", "Argentina · Liga Profesional"),
+    F("arg.copa", "Copa Argentina"),
+    F("bra.1", "Brasil · Serie A"),
+    F("col.1", "Colombia · Liga BetPlay"),
+    F("ecu.1", "Ecuador · LigaPro"),
+    F("per.1", "Perú · Liga 1"),
+    F("uru.1", "Uruguay · Campeonato Uruguayo"),
+    F("chi.1", "Chile · Primera División"),
+    F("par.1", "Paraguay · Primera División"),
+    F("bol.1", "Bolivia · Liga Profesional"),
+    F("ven.1", "Venezuela · Primera División"),
+    // ----- Europa -----
+    F("uefa.champions", "Champions League"),
+    F("uefa.europa", "Europa League"),
+    F("uefa.europa.conf", "Conference League"),
+    F("uefa.super_cup", "Supercopa de Europa"),
+    F("eng.1", "Premier League"),
+    F("esp.1", "LaLiga"),
+    F("ita.1", "Serie A"),
+    F("ger.1", "Bundesliga"),
+    F("fra.1", "Ligue 1"),
+    F("por.1", "Portugal · Liga Portugal"),
+    F("ned.1", "Holanda · Eredivisie"),
+    F("eng.fa", "FA Cup"),
+    F("eng.league_cup", "Copa de la Liga inglesa"),
+    F("esp.copa_del_rey", "Copa del Rey"),
+    F("ita.coppa_italia", "Coppa Italia"),
+    F("ger.dfb_pokal", "Copa de Alemania"),
+    F("fra.coupe_de_france", "Copa de Francia"),
+    // ----- Selecciones y torneos FIFA -----
+    F("fifa.world", "Mundial"),
+    F("fifa.cwc", "Mundial de Clubes"),
+    F("fifa.intercontinental_cup", "Copa Intercontinental"),
+    F("fifa.world.u17", "Mundial Sub-17"),
+    F("fifa.world.u20", "Mundial Sub-20"),
+    F("conmebol.america", "Copa América"),
+    F("uefa.euro", "Eurocopa"),
+    F("concacaf.gold", "Copa Oro"),
+    F("uefa.nations", "UEFA Nations League"),
+    F("concacaf.nations.league", "Liga de Naciones Concacaf"),
+    F("fifa.worldq.concacaf", "Eliminatorias Concacaf"),
+    F("fifa.worldq.conmebol", "Eliminatorias Conmebol"),
+    F("fifa.worldq.uefa", "Eliminatorias UEFA"),
+    F("fifa.worldq.afc", "Eliminatorias Asia"),
+    F("fifa.worldq.caf", "Eliminatorias África"),
+    F("fifa.olympics", "Juegos Olímpicos"),
+    F("fifa.friendly", "Amistosos de selecciones"),
+    // ----- americanos -----
     { dep: "nfl", id: "football/nfl", nombre: "NFL" },
     { dep: "nba", id: "basketball/nba", nombre: "NBA" },
-    // box (TheSportsDB, liga 4445)
+    // ----- box (TheSportsDB, liga 4445) -----
     { dep: "box", sportsdb: "4445", nombre: "Box" },
   ];
 
@@ -144,21 +191,34 @@
     return out;
   }
 
-  // ---------- caché corto en memoria ----------
-  const cache = {}; // diaMX -> {t, eventos, fallas}
+  // ---------- caché en memoria ----------
+  // Con tantas ligas, el refresco de cada minuto solo vuelve a consultar las
+  // ligas que SÍ tienen partidos ese día; la lista completa se revisa cada 10 min.
+  const cache = {}; // diaMX -> {t, tTodo, porLiga: Map(liga -> eventos), fallas, total}
+  const cargarLiga = (l, dia) => (l.sportsdb ? cargarBox(l, dia) : cargarESPN(l, dia))
+    .then(evs => evs.filter(e => e.dia === dia));
+
   async function cargarDia(diaMX, forzar) {
+    const esHoy = diaMX === keyMX(new Date());
     const c = cache[diaMX];
-    const vida = diaMX === keyMX(new Date()) ? 60e3 : 10 * 60e3;
-    if (c && !forzar && Date.now() - c.t < vida) return c;
+    if (c && !forzar && Date.now() - c.t < (esHoy ? 60e3 : 10 * 60e3)) return c;
+
+    const completo = !c || Date.now() - c.tTodo >= 10 * 60e3;
+    const porLiga = c ? new Map(c.porLiga) : new Map();
+    const pendientes = completo ? LIGAS : LIGAS.filter(l => (porLiga.get(l) || []).length);
     let fallas = 0;
-    const res = await Promise.all(LIGAS.map(l =>
-      (l.sportsdb ? cargarBox(l, diaMX) : cargarESPN(l, diaMX)).catch(() => { fallas++; return []; })));
+    await Promise.all(pendientes.map(l => cargarLiga(l, diaMX)
+      .then(evs => porLiga.set(l, evs))
+      .catch(() => { fallas++; })));
+
     const vistos = new Set();
-    const eventos = res.flat()
-      .filter(e => e.dia === diaMX)
+    const eventos = [...porLiga.values()].flat()
       .filter(e => { const k = e.liga + e.local + e.visita + e.ts; if (vistos.has(k)) return false; vistos.add(k); return true; })
       .sort((a, b) => a.orden - b.orden || a.ts - b.ts);
-    return (cache[diaMX] = { t: Date.now(), eventos, fallas, total: LIGAS.length * 2 });
+    return (cache[diaMX] = {
+      t: Date.now(), tTodo: completo ? Date.now() : c.tTodo, porLiga, eventos,
+      fallas: completo ? fallas : (c.fallas || 0), total: LIGAS.length,
+    });
   }
 
   // ---------- pantalla ----------

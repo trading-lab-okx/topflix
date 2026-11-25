@@ -11,7 +11,8 @@ de [TMDB](https://www.themoviedb.org/):
 - Tráiler de YouTube incrustado y plataformas donde está cada título
 
 Y una pestaña **⚽ Deportes** con la agenda del día (ayer / hoy / mañana, hora de
-Ciudad de México, marcadores en vivo) de fútbol, NFL, NBA y box. No necesita
+Ciudad de México, marcadores en vivo) de fútbol (México, Concacaf y
+Centroamérica, Sudamérica, Europa, selecciones y torneos FIFA), NFL, NBA y box. No necesita
 llave ni registro: la página consulta directo los marcadores públicos de ESPN
 (fútbol, NFL, NBA) y la API pública de [TheSportsDB](https://www.thesportsdb.com/) (box).
 La misma agenda está sola en **`deportes.html`** (enlace fijo para la app Play):
