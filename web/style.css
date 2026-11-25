@@ -118,3 +118,19 @@ main{padding:8px 0 40px}
 .mid .status.ft{color:var(--tx2)}
 .mid .status.susp{color:var(--gold)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+
+/* barra de deportes (dia + filtro) */
+.sp-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:16px 18px 0}
+.sp-chips{display:flex;gap:6px;flex-wrap:wrap}
+.sp-chips button{background:var(--bg2);border:1px solid var(--line);color:var(--tx2);
+  font-size:13px;padding:6px 12px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.sp-chips button.on{border-color:var(--accent);color:var(--tx);font-weight:600}
+.sp-meta{margin:12px 18px 0;color:var(--tx2);font-size:12.5px}
+.sp-meta .cap{color:var(--tx);font-weight:600}
+.sp-list{margin:14px 18px 30px}
+.mid .det{font-size:11px;color:var(--tx2)}
+.team.solo{justify-content:flex-start;font-weight:600}
+.match-note{padding:0 12px 9px;margin-top:-6px;color:var(--tx2);font-size:11.5px;
+  text-align:center;border-bottom:1px solid var(--line)}
+.league-group > .match-note:last-child{border-bottom:0}
+.match:has(+ .match-note){border-bottom:0}

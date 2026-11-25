@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Eventos deportivos de hoy</title>
+<meta name="theme-color" content="#0b0d10">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- Pagina sola con la agenda deportiva (enlace fijo para la app Play).
+     Es la misma agenda de la pestana Deportes de topflix. -->
+<header class="top">
+  <div class="brand">🏟️ <span>Eventos de hoy</span></div>
+</header>
+<main id="sportsApp"><p class="loading">Cargando…</p></main>
+<footer class="foot">
+  Datos de <a href="https://www.espn.com.mx/" target="_blank" rel="noopener">ESPN</a> y
+  <a href="https://www.thesportsdb.com/" target="_blank" rel="noopener">TheSportsDB</a>.
+  Solo informativo.
+</footer>
+<script src="deportes.js"></script>
+<script>TopflixDeportes.mount(document.getElementById("sportsApp"));</script>
+</body>
+</html>

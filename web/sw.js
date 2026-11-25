@@ -1,12 +1,14 @@
 // Service worker de topflix: sin esto, Chrome/Android no ofrece instalar el
 // sitio como app. Estrategia: red primero (para no quedarte con datos viejos
 // cuando hay señal) y cae al cache si no hay conexión.
-const CACHE = "topflix-v1";
+const CACHE = "topflix-v2";
 const SHELL = [
   "./",
   "index.html",
   "style.css",
   "app.js",
+  "deportes.js",
+  "deportes.html",
   "manifest.webmanifest",
   "icons/icon-192.png",
   "icons/icon-512.png",
