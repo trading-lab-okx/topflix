@@ -192,32 +192,35 @@
   }
 
   // ---------- caché en memoria ----------
-  // Con tantas ligas, el refresco de cada minuto solo vuelve a consultar las
-  // ligas que SÍ tienen partidos ese día; la lista completa se revisa cada 10 min.
-  const cache = {}; // diaMX -> {t, tTodo, porLiga: Map(liga -> eventos), fallas, total}
+  // Ya no se refresca solo: se consulta al abrir cada día y cuando el usuario
+  // toca "Actualizar". Las consultas van de pocas en pocas para no saturar
+  // celulares lentos.
+  const cache = {}; // diaMX -> {t, porLiga: Map(liga -> eventos), fallas, total}
+  const A_LA_VEZ = 6;
   const cargarLiga = (l, dia) => (l.sportsdb ? cargarBox(l, dia) : cargarESPN(l, dia))
     .then(evs => evs.filter(e => e.dia === dia));
 
   async function cargarDia(diaMX, forzar) {
-    const esHoy = diaMX === keyMX(new Date());
     const c = cache[diaMX];
-    if (c && !forzar && Date.now() - c.t < (esHoy ? 60e3 : 10 * 60e3)) return c;
+    if (c && !forzar) return c;
 
-    const completo = !c || Date.now() - c.tTodo >= 10 * 60e3;
+    // si una liga falla, se queda con lo último que se tenía de ella
     const porLiga = c ? new Map(c.porLiga) : new Map();
-    const pendientes = completo ? LIGAS : LIGAS.filter(l => (porLiga.get(l) || []).length);
-    let fallas = 0;
-    await Promise.all(pendientes.map(l => cargarLiga(l, diaMX)
-      .then(evs => porLiga.set(l, evs))
-      .catch(() => { fallas++; })));
+    let fallas = 0, i = 0;
+    async function trabajador() {
+      while (i < LIGAS.length) {
+        const l = LIGAS[i++];
+        try { porLiga.set(l, await cargarLiga(l, diaMX)); } catch (_) { fallas++; }
+      }
+    }
+    await Promise.all(Array.from({ length: A_LA_VEZ }, trabajador));
 
     const vistos = new Set();
     const eventos = [...porLiga.values()].flat()
       .filter(e => { const k = e.liga + e.local + e.visita + e.ts; if (vistos.has(k)) return false; vistos.add(k); return true; })
       .sort((a, b) => a.orden - b.orden || a.ts - b.ts);
     return (cache[diaMX] = {
-      t: Date.now(), tTodo: completo ? Date.now() : c.tTodo, porLiga, eventos,
-      fallas: completo ? fallas : (c.fallas || 0), total: LIGAS.length,
+      t: Date.now(), porLiga, eventos, fallas, total: LIGAS.length,
     });
   }
 
@@ -240,7 +243,7 @@
   }
 
   function mount(root) {
-    let dep = "todo", off = 0, timer = null, token = 0;
+    let dep = "todo", off = 0, token = 0, ultimo = null, diaAbierto = keyMX(new Date());
     try {
       const d = localStorage.getItem("topflix_dep");
       if (DEPORTES.some(x => x.k === d)) dep = d;
@@ -251,10 +254,36 @@
         <div class="seg sp-days">${DIAS.map(d => `<button type="button" data-o="${d.o}">${d.t}</button>`).join("")}</div>
         <div class="sp-chips">${DEPORTES.map(d => `<button type="button" data-k="${d.k}">${d.t}</button>`).join("")}</div>
       </div>
-      <p class="sp-meta"></p>
+      <div class="sp-metabar">
+        <p class="sp-meta"></p>
+        <button type="button" class="sp-refresh" aria-label="Actualizar">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+          <span>Actualizar</span>
+        </button>
+      </div>
       <div class="sp-list"><p class="loading">Cargando…</p></div>`;
     const lista = root.querySelector(".sp-list");
     const meta = root.querySelector(".sp-meta");
+    const boton = root.querySelector(".sp-refresh");
+    const botonTxt = boton.querySelector("span");
+
+    // "hace X min": se recalcula en pantalla, sin volver a consultar nada
+    function haceCuanto(t) {
+      const min = Math.floor((Date.now() - t) / 60e3);
+      if (min < 1) return "hace un momento";
+      if (min < 60) return `hace ${min} min`;
+      const h = Math.floor(min / 60);
+      return h === 1 ? "hace 1 hora" : `hace ${h} horas`;
+    }
+    function pintarMeta() {
+      if (!ultimo) return;
+      const { fechaTxt, datos } = ultimo;
+      const hora = new Date(datos.t).toLocaleTimeString("es-MX", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+      const faltan = datos.fallas > 0 && datos.fallas < datos.total
+        ? ` · ${datos.fallas} ${datos.fallas === 1 ? "liga no respondió" : "ligas no respondieron"}` : "";
+      meta.innerHTML = `<span class="cap">${esc(fechaTxt)}</span> · hora de Ciudad de México · ` +
+        `actualizado <b>${esc(haceCuanto(datos.t))}</b> (${esc(hora)})${esc(faltan)}`;
+    }
 
     function marcar() {
       root.querySelectorAll(".sp-days button").forEach(b => b.classList.toggle("on", +b.dataset.o === off));
@@ -269,12 +298,15 @@
         { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })
         .replace(/^./, c => c.toUpperCase());
       if (!cache[dia]) lista.innerHTML = `<p class="loading">Cargando ${esc(fechaTxt)}…</p>`;
-      const datos = await cargarDia(dia, forzar);
+      const cargando = forzar || !cache[dia];
+      if (cargando) { boton.disabled = true; botonTxt.textContent = "Actualizando…"; }
+      let datos;
+      try { datos = await cargarDia(dia, forzar); }
+      finally { if (mio === token) { boton.disabled = false; botonTxt.textContent = "Actualizar"; } }
       if (mio !== token) return; // el usuario ya cambió de día/deporte
 
-      const hora = new Date(datos.t).toLocaleTimeString("es-MX", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
-      meta.innerHTML = `<span class="cap">${esc(fechaTxt)}</span> · hora de Ciudad de México · actualizado ${esc(hora)}` +
-        (off === 0 ? " · se refresca solo cada minuto" : "");
+      ultimo = { fechaTxt, datos };
+      pintarMeta();
 
       if (datos.fallas >= datos.total) {
         lista.innerHTML = `<p class="loading">No se pudo conectar con las fuentes de datos. Revisa tu internet y vuelve a intentar.</p>`;
@@ -309,17 +341,19 @@
       pintar(false);
     });
 
-    function arrancarReloj() {
-      clearInterval(timer);
-      timer = setInterval(() => {
-        if (document.hidden || root.closest("[hidden]")) return;
-        if (off === 0) pintar(true);
-      }, 60e3);
-    }
-    document.addEventListener("visibilitychange", () => { if (!document.hidden && off === 0) pintar(false); });
+    boton.addEventListener("click", () => pintar(true));
+
+    // Solo se actualiza el texto "hace X min" (no consulta nada). Si al volver
+    // a la página ya cambió el día, se carga el día nuevo.
+    setInterval(() => { if (!document.hidden) pintarMeta(); }, 30e3);
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) return;
+      const hoy = keyMX(new Date());
+      if (hoy !== diaAbierto) { diaAbierto = hoy; pintar(false); }
+      else pintarMeta();
+    });
 
     pintar(false);
-    arrancarReloj();
     return { refrescar: () => pintar(false) };
   }
 

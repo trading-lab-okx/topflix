@@ -125,7 +125,15 @@ main{padding:8px 0 40px}
 .sp-chips button{background:var(--bg2);border:1px solid var(--line);color:var(--tx2);
   font-size:13px;padding:6px 12px;border-radius:999px;cursor:pointer;white-space:nowrap}
 .sp-chips button.on{border-color:var(--accent);color:var(--tx);font-weight:600}
-.sp-meta{margin:12px 18px 0;color:var(--tx2);font-size:12.5px}
+.sp-metabar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 18px 0}
+.sp-meta{margin:0;color:var(--tx2);font-size:12.5px;flex:1 1 220px}
+.sp-meta b{color:var(--tx);font-weight:600}
+.sp-refresh{display:inline-flex;align-items:center;gap:6px;background:none;border:1px solid var(--line);
+  color:var(--tx);font-size:13px;padding:7px 12px;border-radius:999px;cursor:pointer}
+.sp-refresh:hover{border-color:var(--tx2)}
+.sp-refresh:disabled{color:var(--tx2);cursor:default}
+.sp-refresh:disabled svg{animation:sp-gira 1s linear infinite}
+@keyframes sp-gira{to{transform:rotate(360deg)}}
 .sp-meta .cap{color:var(--tx);font-weight:600}
 .sp-list{margin:14px 18px 30px}
 .mid .det{font-size:11px;color:var(--tx2)}
